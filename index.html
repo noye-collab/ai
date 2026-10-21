@@ -1,0 +1,1086 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0c5964">
+  <title>Island Lines — Hawaiʻi Shore Fishing</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #102e35;
+      --muted: #a9c5c4;
+      --foam: #effff8;
+      --mint: #9be4c6;
+      --gold: #ffd88a;
+      --panel: rgba(10, 34, 39, .88);
+      --line: rgba(222, 255, 245, .13);
+      font-family: "Avenir Next", Avenir, system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; min-height: 100vh; background: #0a515b; color: var(--foam); }
+    button { color: inherit; font: inherit; }
+    .world { position: fixed; inset: 0; overflow: hidden; background: #77c8bd; }
+    canvas { width: 100%; height: 100%; display: block; }
+    .vignette { position: absolute; inset: 0; background: linear-gradient(180deg,#0d31301c 0%,transparent 38%,#05272b65 100%),radial-gradient(ellipse at 50% 40%,transparent 38%,#08272c45 100%); pointer-events: none; }
+    .topbar { position: absolute; z-index: 2; inset: 0 0 auto; padding: 22px clamp(16px,4vw,54px); display: flex; align-items: flex-start; justify-content: space-between; pointer-events: none; }
+    .identity { text-shadow: 0 3px 16px #123b4080; }
+    .kicker { font-size: 9px; font-weight: 850; letter-spacing: .27em; text-transform: uppercase; color: #e4f8df; }
+    h1 { margin: 4px 0 0; font-size: clamp(26px,4vw,43px); line-height: .92; letter-spacing: -.065em; }
+    .location { margin-top: 8px; font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #e6f7df; }
+    .money { min-width: 132px; padding: 11px 15px; border: 1px solid #ffffff40; border-radius: 13px; background: #092e35a6; backdrop-filter: blur(12px); text-align: right; box-shadow: 0 8px 30px #09282b30; }
+    .money small { display: block; color: #c3dfd8; font-size: 8px; font-weight: 850; letter-spacing: .18em; }
+    .money strong { display: block; margin-top: 3px; font-size: 22px; line-height: 1; letter-spacing: -.04em; }
+    .top-actions { display: flex; align-items: center; gap: 8px; }
+    .weather-chip,.sound-toggle { min-height: 43px; padding: 8px 12px; border: 1px solid #ffffff40; border-radius: 12px; background: #092e35a6; backdrop-filter: blur(12px); box-shadow: 0 8px 30px #09282b30; }
+    .weather-chip { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 130px; }
+    .weather-chip small { color: #c3dfd8; font-size: 8px; font-weight: 850; letter-spacing: .15em; }
+    .weather-chip .weather-countdown { font-size: 7px; letter-spacing: .1em; }
+    .weather-chip strong { font-size: 11px; }
+    .weather-chip.lucky { border-color: #ffe092; box-shadow: 0 0 22px #ffd86a88; }
+    .sound-toggle { cursor: pointer; font-size: 11px; font-weight: 800; pointer-events: auto; }
+    .weather-toast { border-color: #ffe09280; }
+    .game { position: absolute; z-index: 2; inset: auto 0 0; padding: 14px clamp(12px,3vw,38px) 20px; display: grid; grid-template-columns: minmax(195px, 245px) minmax(220px, 1fr) minmax(195px, 245px); gap: 12px; align-items: end; }
+    .panel { min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); backdrop-filter: blur(16px); box-shadow: 0 14px 42px #061d2280; }
+    .panel-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; color: var(--mint); font-size: 9px; font-weight: 900; letter-spacing: .18em; text-transform: uppercase; }
+    .gear { display: flex; gap: 11px; align-items: center; min-height: 60px; }
+    .rod-icon { width: 48px; height: 56px; flex: 0 0 auto; }
+    .gear-name { font-size: 13px; font-weight: 850; }
+    .gear-sub { margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 1.4; }
+    .statline { display: flex; justify-content: space-between; margin-top: 8px; color: var(--muted); font-size: 10px; }
+    .statline strong { color: var(--foam); font-variant-numeric: tabular-nums; }
+    .center { text-align: center; }
+    .status { min-height: 24px; margin: 0 0 8px; color: #f0fff5; font-size: clamp(13px,1.6vw,17px); font-weight: 850; letter-spacing: -.02em; text-shadow: 0 2px 8px #07343b; }
+    .substatus { min-height: 17px; margin-bottom: 12px; color: #dbf0e7; font-size: 10px; }
+    .buttons { display: flex; justify-content: center; gap: 9px; }
+    .btn { min-height: 41px; padding: 0 16px; border: 1px solid #ffffff26; border-radius: 11px; background: #193d41; color: #f4fff8; font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; transition: transform .14s, filter .14s, background .14s; }
+    .btn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.14); }
+    .btn:active:not(:disabled) { transform: translateY(0); }
+    .btn:disabled { opacity: .4; cursor: not-allowed; }
+    .primary { border-color: #c0f1ce80; background: linear-gradient(135deg,#86c9a4,#459879); color: #082d30; box-shadow: 0 4px 16px #347e6650; }
+    .gold { border-color: #ffe2a56b; background: linear-gradient(135deg,#e9c77e,#c79249); color: #302411; }
+    .meter-block { margin: 0 2px 12px; text-align: left; }
+    .meter-label { display: flex; justify-content: space-between; margin-bottom: 5px; color: #c1d8d0; font-size: 8px; font-weight: 850; letter-spacing: .12em; }
+    .meter { height: 7px; overflow: hidden; border-radius: 9px; background: #ffffff20; }
+    .meter-fill { height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg,#75d8ae,#ffe28b,#f17d62); transition: width .1s; }
+    .actions { display: flex; flex-direction: column; gap: 8px; }
+    .action-row { display: flex; gap: 7px; }
+    .action-row .btn { flex: 1; min-width: 0; padding: 0 9px; font-size: 9px; }
+    .fish-summary { min-height: 29px; margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; line-height: 1.4; text-align: left; }
+    .fish-summary strong { color: var(--foam); }
+    .modal-backdrop { position: fixed; z-index: 5; inset: 0; display: none; align-items: center; justify-content: center; padding: 16px; background: #041b20a8; backdrop-filter: blur(7px); }
+    .modal-backdrop.open { display: flex; }
+    .modal { width: min(620px, 100%); max-height: min(82vh, 740px); overflow: auto; padding: 20px; border: 1px solid #ffffff24; border-radius: 19px; background: #102d32f5; box-shadow: 0 24px 90px #0009; }
+    .modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 16px; }
+    .modal h2 { margin: 0; font-size: 22px; letter-spacing: -.045em; }
+    .modal-intro { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
+    .close { width: 34px; min-height: 34px; padding: 0; font-size: 18px; }
+    .tabs { display: flex; gap: 7px; margin-bottom: 12px; }
+    .tab { padding: 8px 12px; border: 1px solid var(--line); border-radius: 9px; background: transparent; color: #bfd3cd; font-size: 10px; font-weight: 850; cursor: pointer; }
+    .tab.active { background: #31594c; color: #effff4; border-color: #8bd4af55; }
+    .fish-list,.shop-list { display: grid; gap: 8px; }
+    .fish-row,.shop-row { display: flex; align-items: center; gap: 12px; padding: 11px; border: 1px solid #ffffff14; border-radius: 12px; background: #ffffff08; }
+    .fish-emoji { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 10px; background: #2c5651; font-size: 23px; }
+    .row-main { flex: 1; min-width: 0; }
+    .row-title { font-size: 12px; font-weight: 850; }
+    .row-meta { margin-top: 4px; color: var(--muted); font-size: 9px; line-height: 1.45; }
+    .row-side { text-align: right; }
+    .row-price { color: var(--gold); font-size: 12px; font-weight: 900; white-space: nowrap; }
+    .rarity { display: inline-block; margin-top: 4px; font-size: 8px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+    .rarity.common { color: #b5cec4; } .rarity.uncommon { color: #7ce0a1; } .rarity.rare { color: #6ecbff; } .rarity.epic { color: #ce9aff; } .rarity.legendary { color: #ffd66e; }
+    .empty { padding: 28px 12px; color: var(--muted); font-size: 12px; text-align: center; }
+    .shop-row .btn { min-height: 34px; padding: 0 11px; font-size: 9px; }
+    .toast { position: fixed; z-index: 9; top: 100px; left: 50%; transform: translate(-50%,-10px); padding: 10px 15px; border: 1px solid #effff23d; border-radius: 99px; background: #092c34e8; color: white; font-size: 11px; font-weight: 850; opacity: 0; transition: .2s; pointer-events: none; text-align: center; box-shadow: 0 8px 24px #06283066; }
+    .toast.show { opacity: 1; transform: translate(-50%,0); }
+    @media(max-width:720px) {
+      .topbar { padding: 15px; }
+      .top-actions { gap: 5px; }
+      .weather-chip { min-width: 0; padding: 7px 8px; }
+      .weather-chip small { font-size: 7px; }
+      .weather-chip strong { font-size: 9px; }
+      .sound-toggle { min-height: 38px; padding: 7px; font-size: 9px; }
+      .game { grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px; }
+      .panel { padding: 11px; border-radius: 13px; }
+      .center { grid-column: 1 / -1; grid-row: 1; }
+      .status { margin-bottom: 3px; }
+      .substatus { min-height: 0; margin-bottom: 7px; }
+      .meter-block { margin-bottom: 8px; }
+      .buttons .btn { min-height: 37px; }
+      .money { min-width: 100px; padding: 9px 11px; }
+      .money strong { font-size: 19px; }
+    }
+    @media(max-width:420px) {
+      .kicker { font-size: 7px; }
+      h1 { font-size: 27px; }
+      .location { font-size: 8px; }
+      .top-actions { flex-direction: column; align-items: flex-end; }
+      .weather-chip { display: flex; min-width: 112px; }
+      .weather-chip .weather-countdown { display: none; }
+      .sound-toggle { min-height: 30px; }
+      .gear-name { font-size: 11px; }
+      .rod-icon { width: 38px; }
+      .panel-title { font-size: 8px; letter-spacing: .12em; }
+      .action-row .btn { font-size: 8px; padding: 0 6px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="world" aria-hidden="true"><canvas id="coast"></canvas><div class="vignette"></div></div>
+  <header class="topbar">
+    <div class="identity">
+      <div class="kicker">HAWAIʻI · PACIFIC SHORE</div>
+      <h1>ISLAND LINES</h1>
+      <div class="location">South shore · late afternoon · light trade winds</div>
+    </div>
+    <div class="top-actions">
+      <div class="weather-chip" id="weather-chip"><small>WEATHER</small><strong id="weather-label">Sunny · calm</strong><small class="weather-countdown" id="weather-countdown">CHANGES IN 60s</small><small class="luck-label">INSANE LUCK · 10,000×</small></div>
+      <button class="sound-toggle" id="sound-toggle" aria-label="Enable sound effects">🔇 Sound</button>
+      <div class="money"><small>WALLET</small><strong>$<span id="cash">120</span></strong></div>
+    </div>
+  </header>
+
+  <main class="game">
+    <section class="panel">
+      <div class="panel-title"><span>Your setup</span><span id="bait-label">Bait · Shrimp</span></div>
+      <div class="gear">
+        <svg class="rod-icon" viewBox="0 0 48 56" aria-label="Black seven-foot spinning rod and reel">
+          <defs><linearGradient id="rodshine" x1="0" x2="1"><stop stop-color="#111b1c"/><stop offset=".45" stop-color="#788887"/><stop offset=".56" stop-color="#192526"/><stop offset="1" stop-color="#080e0f"/></linearGradient></defs>
+          <path d="M12 51 Q19 25 36 3" fill="none" stroke="#050b0d" stroke-width="4" stroke-linecap="round"/>
+          <path d="M13 49 Q20 25 36 4" fill="none" stroke="url(#rodshine)" stroke-width="2" stroke-linecap="round"/>
+          <path d="M35 4q3-2 4 1M30 12q3-2 4 1M25 20q3-2 4 1M20 29q3-2 4 1" fill="none" stroke="#c5d7ca" stroke-width="1"/>
+          <path d="M10 44l7 3-3 7-7-3z" fill="#161f20" stroke="#a4b2aa" stroke-width=".7"/>
+          <circle cx="14" cy="38" r="5.7" fill="#11191b" stroke="#d0dbd0" stroke-width="1"/>
+          <circle cx="14" cy="38" r="2.2" fill="#879c94"/>
+          <path d="M17 35l7-4 1 1-7 5M9 46l-5 5" fill="none" stroke="#c6d1c9" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        <div><div class="gear-name" id="rod-name">Blackwater 7' Spinning</div><div class="gear-sub" id="reel-name">2500-size spinner · 10 lb mono</div></div>
+      </div>
+      <div class="statline"><span>Rod strength</span><strong id="rod-stat">1 / 4</strong></div>
+      <div class="statline"><span>Reel drag</span><strong id="reel-stat">1 / 4</strong></div>
+      <div class="statline"><span>Fish kept</span><strong id="kept-stat">0</strong></div>
+    </section>
+
+    <section class="panel center">
+      <p class="status" id="status">A quiet edge of the Pacific</p>
+      <div class="substatus" id="substatus">Hold CAST LINE or SPACE to load up, then release to cast.</div>
+      <div class="meter-block">
+        <div class="meter-label"><span id="meter-name">CAST POWER</span><span id="meter-value">Ready</span></div>
+        <div class="meter"><div class="meter-fill" id="meter-fill"></div></div>
+      </div>
+      <div class="buttons">
+        <button class="btn primary" id="cast-button">Cast line</button>
+        <button class="btn gold" id="action-button" disabled>Set hook</button>
+      </div>
+    </section>
+
+    <section class="panel actions">
+      <div class="panel-title"><span>Catch & tackle</span></div>
+      <div class="action-row">
+        <button class="btn" id="keep-button" disabled>Keep fish</button>
+        <button class="btn" id="release-button" disabled>Release</button>
+      </div>
+      <div class="action-row">
+        <button class="btn" id="stringer-button">Stringer</button>
+        <button class="btn" id="shop-button">Tackle shop</button>
+      </div>
+      <div class="fish-summary" id="fish-summary">No fish on your stringer yet.</div>
+    </section>
+  </main>
+
+  <div class="modal-backdrop" id="modal-backdrop">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-head">
+        <div><h2 id="modal-title">Your stringer</h2><p class="modal-intro" id="modal-intro">Sell your catch or release a fish.</p></div>
+        <button class="btn close" id="close-modal" aria-label="Close">×</button>
+      </div>
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-tab="stringer">Stringer</button>
+        <button class="tab" data-tab="shop">Tackle shop</button>
+      </div>
+      <div id="modal-content"></div>
+    </section>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      "use strict";
+      const $ = (selector) => document.querySelector(selector);
+      const canvas = $("#coast");
+      const ctx = canvas.getContext("2d");
+      const keys = new Set();
+      const fishData = [
+        { name: "ʻŌpelu", common: "Mackerel scad", emoji: "🐟", rarity: "Common", min: 1, max: 3.5, weight: 29, price: 8 },
+        { name: "ʻAwa", common: "Milkfish", emoji: "🐟", rarity: "Common", min: 2, max: 8, weight: 19, price: 7 },
+        { name: "Kūmū", common: "Whitesaddle goatfish", emoji: "🐠", rarity: "Uncommon", min: 1, max: 5, weight: 17, price: 17 },
+        { name: "Moi", common: "Pacific threadfin", emoji: "🐟", rarity: "Uncommon", min: 1, max: 6, weight: 13, price: 22 },
+        { name: "Papio", common: "Juvenile trevally", emoji: "🐟", rarity: "Uncommon", min: 2, max: 12, weight: 12, price: 19 },
+        { name: "ʻOʻio", common: "Bonefish", emoji: "🐟", rarity: "Rare", min: 2, max: 14, weight: 7, price: 35 },
+        { name: "ʻOmilu", common: "Bluefin trevally", emoji: "🐠", rarity: "Rare", min: 3, max: 20, weight: 6, price: 45 },
+        { name: "Aʻu", common: "Skipjack tuna", emoji: "🐟", rarity: "Epic", min: 5, max: 30, weight: 3, price: 70 },
+        { name: "Ulua", common: "Giant trevally", emoji: "🐟", rarity: "Legendary", min: 12, max: 70, weight: 1, price: 120 }
+      ];
+      const rodNames = ["Blackwater 7' Spinning", "Reefrunner 7' Medium", "Bluewater 7' Heavy", "Ulua Hunter 7' Surf"];
+      const reelNames = ["2500-size spinner · 10 lb mono", "3000 spinner · 15 lb braid", "4000 spinner · 25 lb braid", "5000 spinner · 40 lb braid"];
+      const defaults = {
+        cash: 120, rod: 1, reel: 1, bait: "Shrimp", baitUses: 5, inventory: [],
+        stats: { caught: 0, released: 0, casts: 0 }, bestCatch: 0
+      };
+      let saved = {};
+      try { saved = JSON.parse(localStorage.getItem("island-lines-save") || "{}") || {}; } catch (error) { console.warn("Could not read fishing save.", error); }
+      const state = { ...defaults, ...saved, stats: { ...defaults.stats, ...(saved.stats || {}) }, inventory: Array.isArray(saved.inventory) ? saved.inventory : [] };
+      const game = {
+        phase: "idle", castPower: 0, wait: 0, biteAt: 0, biteWindow: 0, fish: null,
+        progress: 0, tension: 18, direction: 1, fightTime: 0, currentTab: "stringer",
+        toastTimer: 0, lastTime: 0, weatherTimer: 0, weatherCountdown: -1, weather: "Sunny · calm",
+        luckyWeather: false, effects: [], luckMultiplier: 10000,
+        jumpTimer: 0, jumpDuration: 1.45, jumpX: 0, jumpY: 0
+      };
+      const weatherCycle = ["Sunny · light trades", "Clouds · gentle breeze", "Passing showers", "Bright sun · calm"];
+      let audioContext = null, soundEnabled = false;
+      function setSoundEnabled(enabled) {
+        soundEnabled = enabled;
+        if (enabled && !audioContext) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) audioContext = new AudioContextClass();
+        }
+        if (audioContext?.state === "suspended") audioContext.resume();
+        $("#sound-toggle").textContent = enabled ? "🔊 Sound" : "🔇 Sound";
+        $("#sound-toggle").setAttribute("aria-label", enabled ? "Mute sound effects" : "Enable sound effects");
+      }
+      function playTone(frequency, duration, type = "sine", volume = .055, delay = 0) {
+        if (!soundEnabled || !audioContext) return;
+        const start = audioContext.currentTime + delay;
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        oscillator.type = type;
+        oscillator.frequency.setValueAtTime(frequency, start);
+        gain.gain.setValueAtTime(.0001, start);
+        gain.gain.exponentialRampToValueAtTime(volume, start + .018);
+        gain.gain.exponentialRampToValueAtTime(.0001, start + duration);
+        oscillator.connect(gain); gain.connect(audioContext.destination);
+        oscillator.start(start); oscillator.stop(start + duration + .02);
+      }
+      function playNoise(duration = .3, volume = .045, cutoff = 1500) {
+        if (!soundEnabled || !audioContext) return;
+        const length = Math.ceil(audioContext.sampleRate * duration);
+        const buffer = audioContext.createBuffer(1, length, audioContext.sampleRate);
+        const channel = buffer.getChannelData(0);
+        for (let i = 0; i < length; i++) channel[i] = (Math.random() * 2 - 1) * (1 - i / length);
+        const source = audioContext.createBufferSource();
+        const filter = audioContext.createBiquadFilter();
+        const gain = audioContext.createGain();
+        source.buffer = buffer; filter.type = "lowpass"; filter.frequency.value = cutoff;
+        gain.gain.value = volume;
+        source.connect(filter); filter.connect(gain); gain.connect(audioContext.destination); source.start();
+      }
+      function playSfx(name) {
+        if (!soundEnabled) return;
+        if (!audioContext) setSoundEnabled(true);
+        if (name === "cast") { playNoise(.42, .055, 2400); playTone(260, .18, "triangle", .035, .04); }
+        if (name === "bite") { playTone(880, .11, "sine", .065); playTone(1180, .16, "sine", .055, .13); }
+        if (name === "hook") { playTone(350, .09, "triangle", .055); playTone(530, .14, "triangle", .045, .08); }
+        if (name === "land") { playNoise(.32, .065, 1100); playTone(420, .22, "sine", .045, .08); }
+        if (name === "rare") {
+          playNoise(.5, .035, 3400);
+          [659, 784, 988, 1318].forEach((note, i) => playTone(note, .48, "sine", .065, i * .095));
+        }
+        if (name === "weather") { playTone(440, .12, "sine", .035); playTone(587, .2, "sine", .035, .14); }
+      }
+      const ui = {
+        cash: $("#cash"), bait: $("#bait-label"), rod: $("#rod-name"), reel: $("#reel-name"),
+        rodStat: $("#rod-stat"), reelStat: $("#reel-stat"), kept: $("#kept-stat"),
+        weather: $("#weather-label"), weatherChip: $("#weather-chip"), weatherCountdown: $("#weather-countdown"),
+        status: $("#status"), substatus: $("#substatus"), meterName: $("#meter-name"),
+        meterValue: $("#meter-value"), meterFill: $("#meter-fill"), cast: $("#cast-button"),
+        action: $("#action-button"), keep: $("#keep-button"), release: $("#release-button"),
+        stringer: $("#stringer-button"), shop: $("#shop-button"), summary: $("#fish-summary"),
+        backdrop: $("#modal-backdrop"), modalTitle: $("#modal-title"), modalIntro: $("#modal-intro"),
+        modalContent: $("#modal-content"), toast: $("#toast")
+      };
+
+      function save() {
+        try { localStorage.setItem("island-lines-save", JSON.stringify(state)); }
+        catch (error) { console.warn("Could not save fishing progress.", error); }
+      }
+      function dollars(value) { return "$" + Math.floor(value).toLocaleString("en-US"); }
+      function rarityClass(rarity) { return rarity.toLowerCase(); }
+      function rodPower() { return state.rod; }
+      function reelPower() { return state.reel; }
+      function notify(text) {
+        ui.toast.textContent = text;
+        ui.toast.classList.add("show");
+        game.toastTimer = 2.5;
+      }
+      function refresh() {
+        ui.cash.textContent = Math.floor(state.cash).toLocaleString("en-US");
+        ui.weather.textContent = game.luckyWeather ? "Lucky sunbreak · 1,000,000×" : game.weather;
+        ui.weatherChip.classList.toggle("lucky", game.luckyWeather);
+        ui.bait.textContent = "Bait · " + state.bait;
+        ui.rod.textContent = rodNames[state.rod - 1];
+        ui.reel.textContent = reelNames[state.reel - 1];
+        ui.rodStat.textContent = `${state.rod} / 4`;
+        ui.reelStat.textContent = `${state.reel} / 4`;
+        ui.kept.textContent = String(state.inventory.length);
+        const inventoryValue = state.inventory.reduce((sum, fish) => sum + fish.value, 0);
+        ui.summary.innerHTML = state.inventory.length
+          ? `<strong>${state.inventory.length} fish</strong> on your stringer · ${dollars(inventoryValue)} value`
+          : "No fish on your stringer yet.";
+        ui.bait.textContent = `Bait · ${state.bait} (${state.baitUses})`;
+        ui.cast.disabled = !["idle", "landed", "charging", "waiting"].includes(game.phase);
+        ui.action.disabled = !["charging", "waiting", "biting", "hooked"].includes(game.phase);
+        ui.keep.disabled = game.phase !== "caught";
+        ui.release.disabled = game.phase !== "caught";
+        ui.stringer.textContent = `Stringer · ${state.inventory.length}`;
+        if (game.phase === "charging") {
+          ui.cast.textContent = "Release to cast";
+          ui.action.textContent = "Release to cast";
+        } else {
+          ui.cast.textContent = game.phase === "waiting" ? "Reel in" : "Cast line";
+          ui.action.textContent = game.phase === "biting" ? "Set hook!" : game.phase === "hooked" ? "Reel in" : "Set hook";
+        }
+        if (game.phase === "caught" && game.fish) {
+          ui.status.textContent = `${game.fish.species.name} · ${game.fish.rarity}`;
+          ui.substatus.textContent = `${game.fish.weight.toFixed(1)} lb catch · worth ${dollars(game.fish.value)} · keep or release`;
+        }
+        if (ui.backdrop.classList.contains("open")) renderModal();
+      }
+
+      function chooseFish(distance) {
+        const eligible = fishData.map((fish) => ({
+          ...fish,
+          adjusted: fish.weight *
+            (fish.rarity === "Legendary" ? .55 + distance * .9 : fish.rarity === "Epic" ? .7 + distance * .5 : 1) *
+            ((baitBonus[state.bait] || 0) && ["Rare", "Epic", "Legendary"].includes(fish.rarity) ? 1 + baitBonus[state.bait] * 2 : 1) *
+            (["Rare", "Epic", "Legendary"].includes(fish.rarity) ? game.luckMultiplier : fish.rarity === "Uncommon" ? .35 : 1) *
+            (game.luckyWeather && ["Rare", "Epic", "Legendary"].includes(fish.rarity) ? 100 : 1)
+        }));
+        const total = eligible.reduce((sum, fish) => sum + fish.adjusted, 0);
+        let roll = Math.random() * total;
+        for (const fish of eligible) {
+          roll -= fish.adjusted;
+          if (roll <= 0) return fish;
+        }
+        return eligible[0];
+      }
+
+      function setPhase(phase, title, subtitle) {
+        game.phase = phase;
+        if (title) ui.status.textContent = title;
+        if (subtitle) ui.substatus.textContent = subtitle;
+        refresh();
+      }
+
+      function startCast() {
+        if (!["idle", "landed"].includes(game.phase)) {
+          if (game.phase === "waiting") {
+            game.phase = "idle";
+            setPhase("idle", "Line reeled in", "Ready when you are. Try a cast near the reef.");
+          }
+          return;
+        }
+        game.phase = "charging";
+        game.castPower = 0;
+        game.fish = null;
+        setPhase("charging", "Loading the cast…", "Release the cast button when the power is right.");
+        refresh();
+      }
+
+      function cast() {
+        const distance = .42 + game.castPower * .58;
+        const seconds = 5 + Math.random() * 7 - Math.min(2.4, state.reel * .3);
+        state.stats.casts++;
+        playSfx("cast");
+        state.baitUses = Math.max(0, state.baitUses - 1);
+        if (state.baitUses === 0) {
+          state.bait = "Shrimp";
+          state.baitUses = 5;
+          notify("Bait used up — fresh shrimp rigged.");
+        }
+        game.wait = 0;
+        game.biteAt = Math.max(2.8, seconds);
+        game.biteWindow = 0;
+        game.progress = 0;
+        game.tension = 18;
+        game.fish = null;
+        setPhase("waiting", "Line's out…", `${Math.round(distance * 100)} m cast · watch the float for a bite.`);
+        save();
+      }
+
+      function celebrateCatch(fish) {
+        if (!["Rare", "Epic", "Legendary"].includes(fish.rarity)) return;
+        playSfx("rare");
+        const colors = fish.rarity === "Legendary"
+          ? ["#fff0a6", "#ffd257", "#fff9db"]
+          : fish.rarity === "Epic" ? ["#dfaeff", "#a8d9ff", "#fff0be"] : ["#9be9ff", "#c4ffd9", "#fff4c1"];
+        const x = w * .66, y = h * .57;
+        for (let i = 0; i < 105; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 45 + Math.random() * 280;
+          game.effects.push({
+            x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 55,
+            life: .9 + Math.random() * 1.15, maxLife: 2.05,
+            size: 1.5 + Math.random() * 4, color: colors[i % colors.length],
+            star: i % 5 === 0
+          });
+        }
+      }
+
+      function hookFish() {
+        if (game.phase !== "biting") return;
+        playSfx("hook");
+        game.fish = chooseFish(.42 + game.castPower * .58);
+        const span = game.fish.max - game.fish.min;
+        const trophyBias = game.fish.rarity === "Legendary" ? .86 : .22;
+        const weight = game.fish.min + span * Math.min(.99, Math.random() * .72 + trophyBias * Math.random() * .28);
+        const value = Math.max(2, Math.round(game.fish.price * weight * (0.8 + Math.random() * .4)));
+        game.fish = { species: game.fish, weight, value, rarity: game.fish.rarity, id: Date.now() + Math.random() };
+        game.progress = 0;
+        game.tension = 24;
+        game.fightTime = 0;
+        game.direction = Math.random() < .5 ? -1 : 1;
+        game.jumpTimer = game.jumpDuration;
+        game.jumpX = w * (.5 + game.castPower * .29);
+        game.jumpY = h * (.61 + Math.sin(elapsed * 1.5) * .008);
+        for (let i = 0; i < 24; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 30 + Math.random() * 115;
+          game.effects.push({
+            x: game.jumpX, y: game.jumpY,
+            vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 15,
+            life: .45 + Math.random() * .4, maxLife: .85,
+            size: 1.4 + Math.random() * 3.2, color: i % 3 ? "#effff0" : "#d5f6df",
+            star: false
+          });
+        }
+        setPhase("hooked", "Fish on! Keep the line tight.", "Tap or hold REEL IN to gain line. Ease off if tension climbs.");
+        notify("Hook set! Fight the fish.");
+      }
+
+      function reelFish(dt, isReeling) {
+        const species = game.fish.species;
+        const strength = Math.min(1.6, .72 + game.fish.weight / 40);
+        const dragLimit = 100 + (state.reel - 1) * 8 + (state.rod - 1) * 5;
+        const wave = Math.sin(game.fightTime * 4.2) * 17;
+        game.fightTime += dt;
+        const resisting = Math.max(0, Math.sin(game.fightTime * (2.1 + strength)) * 1.4 + .22);
+        if (isReeling) {
+          game.progress += dt * (10 + state.reel * 2.5) / strength;
+          game.tension += dt * (10 + strength * 7 + resisting * 5);
+        } else {
+          game.progress = Math.max(0, game.progress - dt * (1.8 + resisting * 1.2));
+          game.tension += dt * (resisting * 5 - 7);
+        }
+        game.tension += (wave - game.tension) * dt * .2;
+        game.tension = Math.max(6, Math.min(115, game.tension));
+        if (game.tension >= dragLimit) {
+          state.stats.released++;
+          setPhase("idle", "The line snapped!", `${species.name} got away. Upgrade your line or ease off the drag.`);
+          game.fish = null;
+          notify("Snap! The fish broke your line.");
+          save();
+          return;
+        }
+        if (game.progress >= 100) {
+          game.phase = "caught";
+          state.stats.caught++;
+          state.bestCatch = Math.max(state.bestCatch, game.fish.weight);
+          playSfx("land");
+          celebrateCatch(game.fish);
+          setPhase("caught", `${species.name} · ${game.fish.rarity}`, "A beautiful shore catch. Keep it for your stringer or release it.");
+          const special = ["Rare", "Epic", "Legendary"].includes(game.fish.rarity);
+          notify(special
+            ? `✨ ${game.fish.rarity === "Legendary" ? "LEGENDARY" : game.fish.rarity.toUpperCase()} CATCH! ${species.name} · ${dollars(game.fish.value)} ✨`
+            : `${species.name} landed! ${dollars(game.fish.value)} value.`);
+          save();
+        }
+      }
+
+      function keepFish() {
+        if (game.phase !== "caught" || !game.fish) return;
+        playSfx("land");
+        state.inventory.push(game.fish);
+        const fish = game.fish;
+        game.fish = null;
+        setPhase("landed", `${fish.species.name} on the stringer`, `Worth ${dollars(fish.value)}. Sell your catch at the tackle shop.`);
+        save();
+        notify("Fish added to your stringer.");
+      }
+      function releaseFish() {
+        if (game.phase !== "caught" || !game.fish) return;
+        playSfx("land");
+        const name = game.fish.species.name;
+        game.fish = null;
+        state.stats.released++;
+        setPhase("landed", `${name} swims free`, "Nice release. Cast again when you're ready.");
+        save();
+        notify("Fish safely released.");
+      }
+      function sellFish(id) {
+        const index = state.inventory.findIndex((fish) => fish.id === id);
+        if (index < 0) return;
+        const [fish] = state.inventory.splice(index, 1);
+        state.cash += fish.value;
+        save(); refresh(); renderModal();
+        notify(`${fish.species.name} sold for ${dollars(fish.value)}.`);
+      }
+      function sellAll() {
+        if (!state.inventory.length) return;
+        const total = state.inventory.reduce((sum, fish) => sum + fish.value, 0);
+        const count = state.inventory.length;
+        state.inventory = [];
+        state.cash += total;
+        save(); refresh(); renderModal();
+        notify(`${count} fish sold for ${dollars(total)}.`);
+      }
+
+      const upgrades = [
+        { id: "rod2", name: "Reefrunner 7' Medium", kind: "rod", level: 2, cost: 180, desc: "More backbone for papio and bigger reef fish." },
+        { id: "rod3", name: "Bluewater 7' Heavy", kind: "rod", level: 3, cost: 420, desc: "A tougher blank for strong bluewater runs." },
+        { id: "rod4", name: "Ulua Hunter 7' Surf", kind: "rod", level: 4, cost: 900, desc: "Maximum shore power for a trophy ulua." },
+        { id: "reel2", name: "3000 Spinner · 15 lb braid", kind: "reel", level: 2, cost: 140, desc: "Smoother drag and a stronger line." },
+        { id: "reel3", name: "4000 Spinner · 25 lb braid", kind: "reel", level: 3, cost: 360, desc: "More drag range for hard-fighting fish." },
+        { id: "reel4", name: "5000 Spinner · 40 lb braid", kind: "reel", level: 4, cost: 760, desc: "Heavy-duty spinner built for big ulua." },
+        { id: "shrimp", name: "Fresh shrimp (5 casts)", kind: "bait", bait: "Shrimp", cost: 35, desc: "Reliable all-round bait for inshore species." },
+        { id: "squid", name: "Fresh squid (5 casts)", kind: "bait", bait: "Squid", cost: 50, desc: "A tough bait; gives larger fish a better look." },
+        { id: "lure", name: "Reef popper (5 casts)", kind: "bait", bait: "Pencil popper", cost: 65, desc: "Topwater action for trevally and ʻōʻio." }
+      ];
+      const baitBonus = { Shrimp: 0, Squid: .16, "Pencil popper": .2 };
+      function buyUpgrade(item) {
+        if (state.cash < item.cost) { notify("Not enough cash yet — sell some fish first."); return; }
+        if (item.kind === "rod" && state.rod >= item.level) { notify("You already have this rod or better."); return; }
+        if (item.kind === "reel" && state.reel >= item.level) { notify("You already have this reel or better."); return; }
+        state.cash -= item.cost;
+        if (item.kind === "rod") state.rod = item.level;
+        else if (item.kind === "reel") state.reel = item.level;
+        else { state.bait = item.bait; state.baitUses = 5; }
+        save(); refresh(); renderModal();
+        notify(item.kind === "bait" ? `${item.bait} rigged and ready.` : `${item.name} equipped!`);
+      }
+
+      function renderStringer() {
+        if (!state.inventory.length) {
+          ui.modalContent.innerHTML = `<div class="empty">Your stringer is empty.<br>Catch a fish, then keep it to sell here.</div>`;
+          return;
+        }
+        ui.modalContent.innerHTML = `<div class="fish-list">${state.inventory.map((fish) => `
+          <div class="fish-row">
+            <div class="fish-emoji">${fish.species.emoji}</div>
+            <div class="row-main"><div class="row-title">${fish.species.name} <span style="color:#acc8c0;font-weight:500">· ${fish.species.common}</span></div>
+              <div class="row-meta">${fish.weight.toFixed(1)} lb · <span class="rarity ${rarityClass(fish.rarity)}">${fish.rarity}</span></div></div>
+            <div class="row-side"><div class="row-price">${dollars(fish.value)}</div><button class="btn gold" data-sell="${fish.id}" style="min-height:29px;margin-top:5px">Sell</button></div>
+          </div>`).join("")}</div><div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn primary" id="sell-all" ${state.inventory.length ? "" : "disabled"}>Sell all · ${dollars(state.inventory.reduce((sum, f) => sum + f.value, 0))}</button></div>`;
+        ui.modalContent.querySelectorAll("[data-sell]").forEach((button) => button.addEventListener("click", () => sellFish(Number(button.dataset.sell))));
+        $("#sell-all").addEventListener("click", sellAll);
+      }
+      function renderShop() {
+        ui.modalContent.innerHTML = `<div class="shop-list">${upgrades.map((item) => {
+          const owned = item.kind === "rod" ? state.rod >= item.level : item.kind === "reel" ? state.reel >= item.level : false;
+          const equipped = item.kind === "bait" && state.bait === item.bait;
+          return `<div class="shop-row"><div class="row-main"><div class="row-title">${item.name}</div><div class="row-meta">${item.desc}</div></div><div class="row-side"><div class="row-price">${item.kind === "bait" ? dollars(item.cost) : owned ? "Owned" : dollars(item.cost)}</div><button class="btn ${owned || equipped ? "" : "primary"}" data-buy="${item.id}" ${owned || equipped ? "disabled" : ""}>${owned ? "Owned" : equipped ? "Equipped" : "Buy"}</button></div></div>`;
+        }).join("")}</div>`;
+        ui.modalContent.querySelectorAll("[data-buy]").forEach((button) => button.addEventListener("click", () => {
+          const item = upgrades.find((upgrade) => upgrade.id === button.dataset.buy);
+          if (item) buyUpgrade(item);
+        }));
+      }
+      function renderModal() {
+        const isShop = game.currentTab === "shop";
+        ui.modalTitle.textContent = isShop ? "Tackle shop" : "Your stringer";
+        ui.modalIntro.textContent = isShop ? "Upgrade your shore setup or choose bait for your next cast." : "Sell your catch for cash to improve your gear.";
+        document.querySelectorAll(".tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.tab === game.currentTab));
+        if (isShop) renderShop(); else renderStringer();
+      }
+      function openModal(tab) {
+        game.currentTab = tab;
+        ui.backdrop.classList.add("open");
+        renderModal();
+      }
+      function closeModal() { ui.backdrop.classList.remove("open"); }
+
+      const random = (min, max) => min + Math.random() * (max - min);
+      let w = 0, h = 0, dpr = 1, grainPattern;
+      function resize() {
+        w = window.innerWidth; h = window.innerHeight;
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const grain = document.createElement("canvas");
+        grain.width = 96; grain.height = 96;
+        const grainContext = grain.getContext("2d");
+        const pixels = grainContext.createImageData(grain.width, grain.height);
+        for (let i = 0; i < pixels.data.length; i += 4) {
+          const value = Math.floor(Math.random() * 150 + 55);
+          pixels.data[i] = value;
+          pixels.data[i + 1] = value;
+          pixels.data[i + 2] = value;
+          pixels.data[i + 3] = Math.random() < .5 ? 10 : 20;
+        }
+        grainContext.putImageData(pixels, 0, 0);
+        grainPattern = ctx.createPattern(grain, "repeat");
+      }
+      function polygon(points, fill) {
+        ctx.fillStyle = fill; ctx.beginPath();
+        ctx.moveTo(points[0][0], points[0][1]);
+        for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+        ctx.closePath(); ctx.fill();
+      }
+      function noise(seed) {
+        const value = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+        return value - Math.floor(value);
+      }
+      function mountainY(x, phase, scale, center, peak, floor, detail) {
+        const ridge = Math.sin(x * scale + phase) * .5 +
+          Math.sin(x * scale * 2.31 + phase * 1.7) * .23 +
+          Math.sin(x * scale * 5.17 - phase) * .11 +
+          Math.sin(x * scale * 11.3 + phase * 2) * .045;
+        const massif = Math.max(0, 1 - Math.abs(x - center) / .62);
+        return floor - Math.pow(massif, 1.35) * peak * h - ridge * detail * h;
+      }
+      function drawIsland(center, peak, floor, phase, colors, detail) {
+        const grad = ctx.createLinearGradient(0, floor - peak * h, 0, floor + h * .02);
+        grad.addColorStop(0, colors[0]); grad.addColorStop(.55, colors[1]); grad.addColorStop(1, colors[2]);
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.moveTo(0, h * .535);
+        for (let x = 0; x <= w + 8; x += 8) {
+          ctx.lineTo(x, mountainY(x / w, phase, 7.2, center, peak, floor, detail));
+        }
+        ctx.lineTo(w, h * .535); ctx.closePath(); ctx.fill();
+
+        ctx.save();
+        ctx.globalAlpha = .14;
+        for (let i = 0; i < 120; i++) {
+          const nx = noise(i + phase * 13);
+          const ridge = mountainY(nx, phase, 7.2, center, peak, floor, detail);
+          const y = ridge + h * (.012 + noise(i + 300) * Math.max(.01, (.535 - ridge / h) * .74));
+          if (y > h * .532) continue;
+          const size = h * (.001 + noise(i + 90) * .0038);
+          ctx.fillStyle = i % 4 === 0 ? "#c3bea0" : i % 2 ? colors[0] : "#506c61";
+          for (let leaf = 0; leaf < 3; leaf++) {
+            const lx = nx * w + (noise(i * 3 + leaf) - .5) * size * 8;
+            const ly = y + (noise(i * 5 + leaf + 7) - .5) * size * 5;
+            ctx.beginPath();
+            ctx.ellipse(lx, ly, size * (1.2 + noise(i + leaf + 110)), size * .35, -.4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+      function drawWorld() {
+        const isRainy = game.weather.includes("showers");
+        const isCloudy = game.weather.includes("Clouds");
+        const isLucky = game.luckyWeather;
+        const sky = ctx.createLinearGradient(0, 0, 0, h * .65);
+        sky.addColorStop(0, isRainy ? "#718b91" : isCloudy ? "#87a6a6" : "#75bfc9");
+        sky.addColorStop(.4, isRainy ? "#a7b3aa" : "#b7d6cf");
+        sky.addColorStop(.78, isRainy ? "#c2c2ae" : "#e8ddc0");
+        sky.addColorStop(1, "#eee1c5");
+        ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
+        const sunX = w * .77, sunY = h * .19;
+        const halo = ctx.createRadialGradient(sunX, sunY, 3, sunX, sunY, h * .25);
+        halo.addColorStop(0, isLucky ? "#fff8bfff" : "#fff3d8c9"); halo.addColorStop(.24, isLucky ? "#fff1a58b" : "#fff1c57b"); halo.addColorStop(1, "#fff1c500");
+        ctx.fillStyle = halo; ctx.fillRect(sunX - h * .25, 0, h * .5, h * .48);
+        ctx.fillStyle = "#fff5dd"; ctx.beginPath(); ctx.arc(sunX, sunY, Math.max(17, h * .029), 0, Math.PI * 2); ctx.fill();
+
+        ctx.save();
+        ctx.globalAlpha = .2;
+        for (let i = 0; i < 4; i++) {
+          const x = w * (.14 + i * .22) + Math.sin(elapsed * .015 + i) * 7;
+          const y = h * (.16 + (i % 2) * .075);
+          const mist = ctx.createLinearGradient(x - w * .09, y, x + w * .11, y);
+          mist.addColorStop(0, "#fff8e800"); mist.addColorStop(.5, "#fff9edcc"); mist.addColorStop(1, "#fff8e800");
+          ctx.fillStyle = mist; ctx.beginPath(); ctx.ellipse(x, y, w * .11, h * .012, -.025, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+        const sea = ctx.createLinearGradient(0, h * .49, 0, h);
+        sea.addColorStop(0, "#89b9ac"); sea.addColorStop(.12, "#579b91"); sea.addColorStop(.38, "#237d7b"); sea.addColorStop(.72, "#145e61"); sea.addColorStop(1, "#163f42");
+        ctx.fillStyle = sea; ctx.fillRect(0, h * .5, w, h * .5);
+
+        drawIsland(.27, .21, h * .505, 2.2, ["#687f77", "#74877a", "#92947f"], .026);
+        drawIsland(.71, .145, h * .515, 5.8, ["#7d8b7e", "#87917e", "#a49c80"], .018);
+        const haze = ctx.createLinearGradient(0, h * .42, 0, h * .56);
+        haze.addColorStop(0, "#e5e0c600"); haze.addColorStop(1, "#e5e0c63d");
+        ctx.fillStyle = haze; ctx.fillRect(0, h * .4, w, h * .18);
+
+        const horizon = ctx.createLinearGradient(0, h * .49, 0, h * .57);
+        horizon.addColorStop(0, "#eee7cfb5"); horizon.addColorStop(.35, "#d5e1ce70"); horizon.addColorStop(1, "#d5e1ce00");
+        ctx.fillStyle = horizon; ctx.fillRect(0, h * .49, w, h * .08);
+
+        const reef = ctx.createLinearGradient(0, h * .59, 0, h * .84);
+        reef.addColorStop(0, "#889a7d70"); reef.addColorStop(.28, "#536e6268"); reef.addColorStop(1, "#31565030");
+        ctx.fillStyle = reef; ctx.beginPath(); ctx.moveTo(0,h*.615);
+        for (let x = 0; x <= w + 12; x += 12) {
+          ctx.lineTo(x, h * (.625 + Math.sin(x * .006) * .012 + Math.sin(x * .019) * .006 + Math.sin(x * .043) * .002));
+        }
+        ctx.lineTo(w,h*.83); ctx.lineTo(0,h*.84); ctx.fill();
+        ctx.save();
+        ctx.globalAlpha = .13;
+        for (let i = 0; i < 55; i++) {
+          const x = noise(i + 51) * w, y = h * (.63 + noise(i + 200) * .18);
+          const rx = w * (.007 + noise(i + 88) * .025), ry = h * (.002 + noise(i + 141) * .009);
+          ctx.fillStyle = i % 2 ? "#d7d1a6" : "#243f3c";
+          ctx.beginPath(); ctx.ellipse(x, y, rx, ry, noise(i + 93), 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+        const reflection = ctx.createRadialGradient(sunX, h * .62, 0, sunX, h * .62, w * .32);
+        reflection.addColorStop(0, "#f5e5ae23"); reflection.addColorStop(1, "#f5e5ae00");
+        ctx.fillStyle = reflection; ctx.fillRect(sunX - w * .32, h * .48, w * .64, h * .36);
+        ctx.save();
+        for (let i = 0; i < 210; i++) {
+          const depth = noise(i + 17);
+          const y = h * (.515 + depth * .30);
+          const x = (noise(i + 91) * w + elapsed * (5 + depth * 12)) % w;
+          const len = (3 + depth * 27) * (w / 1000);
+          const alpha = .06 + depth * .17;
+          ctx.strokeStyle = i % 5 === 0 ? `rgba(255,238,192,${alpha})` : `rgba(226,248,228,${alpha})`;
+          ctx.lineWidth = .45 + depth * 1.35;
+          ctx.beginPath(); ctx.moveTo(x, y);
+          ctx.quadraticCurveTo(x + len * .45, y - .5 - depth, x + len, y + .25); ctx.stroke();
+        }
+        ctx.restore();
+        drawFishingLine();
+        drawJumpingFish();
+        drawShore();
+        drawFloat();
+        if (isRainy) {
+          ctx.save();
+          ctx.strokeStyle = "#e0f4f25b";
+          ctx.lineWidth = 1;
+          for (let i = 0; i < 115; i++) {
+            const x = noise(i + 800) * w;
+            const y = (noise(i + 900) * h + elapsed * (210 + noise(i + 1000) * 160)) % h;
+            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 5, y + 13); ctx.stroke();
+          }
+          ctx.restore();
+        }
+        if (grainPattern) {
+          ctx.save();
+          ctx.globalAlpha = .2;
+          ctx.fillStyle = grainPattern;
+          ctx.fillRect(0, 0, w, h);
+          ctx.restore();
+        }
+      }
+
+      function drawFishingLine() {
+        const scale = Math.max(.74, Math.min(1.15, h / 730));
+        const rodTipX = w * .19 + 72 * scale;
+        const rodTipY = h * .775 - 178 * scale;
+        const castPosition = game.phase === "waiting" || game.phase === "biting" || game.phase === "hooked" || game.phase === "caught";
+        const floatX = castPosition ? w * (.5 + game.castPower * .29) : rodTipX + w * .08;
+        const floatY = castPosition ? h * (.61 + Math.sin(elapsed * 1.5) * .008) : h * .64;
+        ctx.save();
+        ctx.strokeStyle = "#e6eee0b8"; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(rodTipX, rodTipY);
+        if (castPosition) ctx.quadraticCurveTo(w * .48, h * .35, floatX, floatY);
+        else ctx.lineTo(floatX, floatY);
+        ctx.stroke();
+        ctx.restore();
+        const pulse = game.phase === "biting" ? Math.sin(elapsed * 13) * 5 : 0;
+        if (game.phase === "waiting" || game.phase === "biting") {
+          ctx.fillStyle = "#f37d58";
+          ctx.beginPath(); ctx.ellipse(floatX, floatY + pulse, 4, 7, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#fff2cd";
+          ctx.beginPath(); ctx.arc(floatX, floatY - 4 + pulse, 3, Math.PI, Math.PI * 2); ctx.fill();
+        }
+      }
+
+      function drawFloat() {
+        if (!["waiting", "biting"].includes(game.phase)) return;
+        const x = w * (.5 + game.castPower * .29);
+        const y = h * (.61 + Math.sin(elapsed * 1.5) * .008);
+        const pulse = game.phase === "biting" ? 1 + Math.sin(elapsed * 13) * .55 : 1;
+        ctx.strokeStyle = `rgba(238,255,235,${.38 / pulse})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(x, y + 7, 8 * pulse, 2.5 * pulse, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      function drawJumpingFish() {
+        if (game.jumpTimer <= 0 || !game.fish) return;
+        const progress = 1 - game.jumpTimer / game.jumpDuration;
+        const arc = Math.sin(progress * Math.PI);
+        const x = game.jumpX + Math.sin(progress * Math.PI * 2) * 16;
+        const y = game.jumpY - arc * Math.min(105, h * .14);
+        const scale = Math.max(.65, Math.min(1.2, h / 800));
+        const colors = game.fish.rarity === "Legendary" ? ["#ffcf67", "#ed9258"] :
+          game.fish.rarity === "Epic" ? ["#cda6ff", "#739ed6"] :
+          game.fish.rarity === "Rare" ? ["#75d9da", "#367e9c"] : ["#d7dfbd", "#739d90"];
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(-.28 + Math.sin(progress * Math.PI * 4) * .22);
+        ctx.scale(scale, scale);
+        ctx.globalAlpha = Math.min(1, Math.sin(progress * Math.PI) * 2.2 + .25);
+        ctx.fillStyle = "#0b414442";
+        ctx.beginPath(); ctx.ellipse(0, 23, 29, 5, 0, 0, Math.PI * 2); ctx.fill();
+        const body = ctx.createLinearGradient(-28, -10, 28, 10);
+        body.addColorStop(0, colors[0]); body.addColorStop(.55, "#f5eed0"); body.addColorStop(1, colors[1]);
+        ctx.fillStyle = body;
+        ctx.beginPath();
+        ctx.moveTo(-30, 0); ctx.quadraticCurveTo(-19, -15, 5, -12);
+        ctx.quadraticCurveTo(22, -9, 28, 0); ctx.quadraticCurveTo(17, 12, -6, 11);
+        ctx.quadraticCurveTo(-23, 9, -30, 0); ctx.fill();
+        ctx.fillStyle = colors[1];
+        ctx.beginPath(); ctx.moveTo(-27, 0); ctx.lineTo(-41, -11); ctx.lineTo(-38, 1); ctx.lineTo(-41, 11); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-1, -10); ctx.lineTo(7, -20); ctx.lineTo(12, -8); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(1, 9); ctx.lineTo(12, 18); ctx.lineTo(15, 9); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = "#ffffff9c"; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(-20, -2); ctx.quadraticCurveTo(-5, -9, 15, -4); ctx.stroke();
+        ctx.fillStyle = "#102e35";
+        ctx.beginPath(); ctx.arc(20, -3, 1.8, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.globalAlpha = Math.sin(progress * Math.PI);
+        ctx.strokeStyle = "#effff0"; ctx.lineWidth = 2;
+        for (let i = 0; i < 3; i++) {
+          ctx.beginPath();
+          ctx.ellipse(game.jumpX, game.jumpY + 7, 12 + i * 8 + progress * 12, 3 + i * 1.2, 0, Math.PI, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawEffects(dt) {
+        for (let i = game.effects.length - 1; i >= 0; i--) {
+          const p = game.effects[i];
+          p.life -= dt;
+          p.vy += 95 * dt;
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          if (p.life <= 0) { game.effects.splice(i, 1); continue; }
+          const opacity = Math.min(1, p.life / .3);
+          ctx.globalAlpha = opacity;
+          ctx.fillStyle = p.color;
+          ctx.shadowColor = p.color;
+          ctx.shadowBlur = p.star ? 14 : 7;
+          if (p.star) {
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (1 + Math.sin(elapsed * 12 + i) * .35), 0, Math.PI * 2); ctx.fill();
+          } else {
+            ctx.beginPath(); ctx.ellipse(p.x, p.y, p.size * .65, p.size * 1.7, Math.atan2(p.vy, p.vx), 0, Math.PI * 2); ctx.fill();
+          }
+          ctx.shadowBlur = 0;
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      function drawShore() {
+        const shore = ctx.createLinearGradient(0, h * .735, 0, h);
+        shore.addColorStop(0, "#a39779"); shore.addColorStop(.12, "#7f7965"); shore.addColorStop(.42, "#5a5a4d"); shore.addColorStop(1, "#313b37");
+        ctx.fillStyle = shore; ctx.beginPath(); ctx.moveTo(0,h*.77);
+        ctx.bezierCurveTo(w*.13,h*.755,w*.25,h*.795,w*.4,h*.775);
+        ctx.bezierCurveTo(w*.55,h*.75,w*.68,h*.795,w*.81,h*.765);
+        ctx.bezierCurveTo(w*.9,h*.752,w*.96,h*.765,w,h*.748);
+        ctx.lineTo(w,h); ctx.lineTo(0,h); ctx.closePath(); ctx.fill();
+
+        const wetSand = ctx.createLinearGradient(0, h * .76, 0, h * .84);
+        wetSand.addColorStop(0, "#ede3c990"); wetSand.addColorStop(.42, "#d3c6a377"); wetSand.addColorStop(1, "#8e8a7450");
+        ctx.strokeStyle = wetSand; ctx.lineWidth = Math.max(8, h * .065);
+        ctx.beginPath(); ctx.moveTo(0,h*.78);
+        ctx.bezierCurveTo(w*.15,h*.765,w*.29,h*.805,w*.43,h*.78);
+        ctx.bezierCurveTo(w*.57,h*.76,w*.72,h*.805,w*.84,h*.77);
+        ctx.bezierCurveTo(w*.92,h*.765,w*.97,h*.775,w,h*.76); ctx.stroke();
+
+        ctx.save();
+        for (let i = 0; i < 190; i++) {
+          const x = noise(i + 720) * w;
+          const y = h * (.79 + noise(i + 812) * .21);
+          const size = 1 + noise(i + 999) * (2 + h * .004);
+          const tone = ["#c3b795","#282f2c","#d0c3a3","#494a40","#9a8d70"][i % 5];
+          ctx.fillStyle = tone;
+          ctx.globalAlpha = .16 + noise(i + 901) * .35;
+          ctx.beginPath(); ctx.ellipse(x, y, size * (1.1 + noise(i + 52)), size * .5, noise(i + 33), 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+
+        ctx.save();
+        ctx.globalAlpha = .36;
+        for (let i = 0; i < 32; i++) {
+          const x = noise(i + 1300) * w;
+          const y = h * (.82 + noise(i + 1390) * .16);
+          const r = h * (.003 + noise(i + 1500) * .009);
+          const rock = ctx.createRadialGradient(x - r * .3, y - r * .4, 1, x, y, r * 1.4);
+          rock.addColorStop(0, "#a49c83"); rock.addColorStop(.45, "#5d6258"); rock.addColorStop(1, "#292f2b");
+          ctx.fillStyle = rock;
+          ctx.beginPath(); ctx.ellipse(x, y, r * 1.6, r, noise(i) * .5, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+        drawAngler();
+      }
+
+      function drawAngler() {
+        const x = w * .19, y = h * .775, scale = Math.max(.74, Math.min(1.15, h / 730));
+        ctx.save(); ctx.translate(x, y); ctx.scale(scale, scale);
+        // Seven-foot black spinning rod with visible guides and a compact reel.
+        ctx.lineCap = "round";
+        ctx.strokeStyle = "#101718"; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(8,-49); ctx.quadraticCurveTo(44,-105,72,-178); ctx.stroke();
+        ctx.strokeStyle = "#87928a"; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(9,-50); ctx.quadraticCurveTo(45,-106,72,-178); ctx.stroke();
+        ctx.strokeStyle = "#d1d8c9"; ctx.lineWidth = 1;
+        for (let i = 1; i < 6; i++) {
+          const t = i / 7, gx = 8 + 64 * t, gy = -49 - 129 * t;
+          ctx.beginPath(); ctx.ellipse(gx,gy,2.2,3.8,-.45,0,Math.PI*2); ctx.stroke();
+        }
+        ctx.strokeStyle = "#222a28"; ctx.lineWidth = 9;
+        ctx.beginPath(); ctx.moveTo(8,-51); ctx.lineTo(-5,-14); ctx.stroke();
+        ctx.strokeStyle = "#817968"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-3,-22); ctx.lineTo(4,-39); ctx.stroke();
+        ctx.fillStyle = "#171d1c"; ctx.beginPath(); ctx.ellipse(12,-39,8,10,-.25,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle = "#c2c7b4"; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(12,-39,5,0,Math.PI*2); ctx.stroke();
+        ctx.strokeStyle = "#202826"; ctx.lineWidth = 8;
+        ctx.beginPath(); ctx.moveTo(-17,1); ctx.lineTo(-15,-18); ctx.lineTo(1,-46); ctx.lineTo(10,-64); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-15,-18); ctx.lineTo(0,-29); ctx.lineTo(6,-46); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-17,1); ctx.lineTo(-29,18); ctx.lineTo(-32,29); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-17,1); ctx.lineTo(-3,17); ctx.lineTo(7,24); ctx.stroke();
+        ctx.strokeStyle = "#d2a57e"; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(-17,1); ctx.lineTo(-15,-18); ctx.lineTo(1,-46); ctx.lineTo(10,-64); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-15,-18); ctx.lineTo(0,-29); ctx.lineTo(6,-46); ctx.stroke();
+        ctx.fillStyle = "#c9a07d"; ctx.beginPath(); ctx.arc(9,-70,7,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle = "#efe5c8"; ctx.beginPath(); ctx.moveTo(2,-75); ctx.quadraticCurveTo(8,-85,16,-74); ctx.lineTo(13,-72); ctx.fill();
+        ctx.fillStyle = "#d4aa52"; ctx.beginPath(); ctx.moveTo(-22,-48); ctx.lineTo(-10,-51); ctx.lineTo(-5,-21); ctx.lineTo(-19,-18); ctx.fill();
+        ctx.restore();
+      }
+
+      let elapsed = 0;
+      function update(dt) {
+        elapsed += dt;
+        game.jumpTimer = Math.max(0, game.jumpTimer - dt);
+        game.weatherTimer += dt;
+        const weatherSeconds = Math.max(0, Math.ceil(60 - game.weatherTimer));
+        if (weatherSeconds !== game.weatherCountdown) {
+          game.weatherCountdown = weatherSeconds;
+          ui.weatherCountdown.textContent = game.luckyWeather ? "LUCKY CONDITIONS ACTIVE" : `CHANGES IN ${weatherSeconds}s`;
+        }
+        if (game.weatherTimer >= 60) {
+          game.weatherTimer %= 60;
+          game.luckyWeather = Math.random() < .12;
+          if (game.luckyWeather) {
+            game.weather = "Lucky sunbreak · 1,000,000× luck";
+            notify("LUCKY SUNBREAK! Your already huge luck gets another 100× boost!");
+          } else {
+            game.weather = weatherCycle[Math.floor(Math.random() * weatherCycle.length)];
+            notify(`Weather changed: ${game.weather}.`);
+          }
+          ui.weather.textContent = game.weather;
+          ui.weatherChip.classList.toggle("lucky", game.luckyWeather);
+          game.weatherCountdown = -1;
+          playSfx("weather");
+        }
+        if (game.phase === "charging") {
+          game.castPower = Math.min(1, game.castPower + dt * .72);
+          ui.meterName.textContent = "CAST POWER";
+          ui.meterValue.textContent = `${Math.round(game.castPower * 100)}%`;
+          ui.meterFill.style.width = `${game.castPower * 100}%`;
+          ui.meterFill.style.background = "linear-gradient(90deg,#65bb98,#f6d67d)";
+        } else if (game.phase === "waiting") {
+          game.wait += dt;
+          ui.meterName.textContent = "WAITING FOR A BITE";
+          ui.meterValue.textContent = `${Math.max(0, Math.ceil(game.biteAt - game.wait))} sec`;
+          ui.meterFill.style.width = `${Math.min(96, game.wait / game.biteAt * 100)}%`;
+          if (game.wait >= game.biteAt) {
+            game.phase = "biting"; game.biteWindow = 2.6;
+            setPhase("biting", "BITE! Set the hook!", "Hit SET HOOK before the fish drops the bait.");
+            notify("Bite! Set the hook now!");
+          }
+        } else if (game.phase === "biting") {
+          game.biteWindow -= dt;
+          ui.meterName.textContent = "BITE WINDOW";
+          ui.meterValue.textContent = `${Math.max(0, game.biteWindow).toFixed(1)} sec`;
+          ui.meterFill.style.width = `${Math.max(0, game.biteWindow / 2.6 * 100)}%`;
+          if (game.biteWindow <= 0) {
+            setPhase("idle", "The fish stole your bait", "No worries — cast again and watch for the next bite.");
+            notify("Too slow — the fish got away.");
+          }
+        } else if (game.phase === "hooked") {
+          const isReeling = keys.has(" ") || keys.has("enter") || keys.has("e");
+          reelFish(dt, isReeling);
+          ui.meterName.textContent = "LINE TENSION";
+          ui.meterValue.textContent = `${Math.round(game.tension)}%`;
+          ui.meterFill.style.width = `${Math.min(100, game.tension)}%`;
+          ui.meterFill.style.background = game.tension > 72 ? "linear-gradient(90deg,#f3be69,#f16f61)" : "linear-gradient(90deg,#65bb98,#f6d67d)";
+          if (game.phase === "hooked") {
+            ui.substatus.textContent = isReeling ? "Reeling… let go briefly if the line tension climbs." : "Hold SPACE / E to reel. Release to let the line relax.";
+          }
+        } else if (game.phase === "caught") {
+          ui.meterName.textContent = "FISH LANDED";
+          ui.meterValue.textContent = `${game.fish.weight.toFixed(1)} lb`;
+          ui.meterFill.style.width = "100%";
+        } else {
+          ui.meterName.textContent = "CAST POWER";
+          ui.meterValue.textContent = "Ready";
+          ui.meterFill.style.width = "0%";
+          ui.meterFill.style.background = "linear-gradient(90deg,#75d8ae,#ffe28b,#f17d62)";
+        }
+        if (game.toastTimer > 0 && (game.toastTimer -= dt) <= 0) ui.toast.classList.remove("show");
+      }
+
+      function frame(now) {
+        const dt = Math.min(.05, (now - game.lastTime) / 1000 || 0);
+        game.lastTime = now;
+        update(dt);
+        drawWorld();
+        drawEffects(dt);
+        requestAnimationFrame(frame);
+      }
+
+      ui.cast.addEventListener("pointerdown", (event) => {
+        if (game.phase === "charging") return;
+        if (game.phase === "waiting") { startCast(); return; }
+        if (game.phase === "idle" || game.phase === "landed") {
+          startCast();
+          try { ui.cast.setPointerCapture(event.pointerId); } catch {}
+        }
+      });
+      $("#sound-toggle").addEventListener("click", () => setSoundEnabled(!soundEnabled));
+      ui.cast.addEventListener("pointerup", () => {
+        if (game.phase === "charging") cast();
+      });
+      ui.cast.addEventListener("pointercancel", () => {
+        if (game.phase === "charging") cast();
+      });
+      ui.action.addEventListener("pointerdown", () => {
+        if (game.phase === "hooked") keys.add(" ");
+      });
+      ui.action.addEventListener("pointerup", () => keys.delete(" "));
+      ui.action.addEventListener("pointercancel", () => keys.delete(" "));
+      ui.action.addEventListener("click", () => {
+        if (game.phase === "biting") hookFish();
+        else if (game.phase === "charging") cast();
+      });
+      ui.keep.addEventListener("click", keepFish);
+      ui.release.addEventListener("click", releaseFish);
+      ui.stringer.addEventListener("click", () => openModal("stringer"));
+      ui.shop.addEventListener("click", () => openModal("shop"));
+      $("#close-modal").addEventListener("click", closeModal);
+      ui.backdrop.addEventListener("click", (event) => { if (event.target === ui.backdrop) closeModal(); });
+      $("#tabs").addEventListener("click", (event) => {
+        const tab = event.target.closest("[data-tab]");
+        if (!tab) return;
+        game.currentTab = tab.dataset.tab;
+        renderModal();
+      });
+      window.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeModal();
+        if ([" ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key) && !ui.backdrop.classList.contains("open")) event.preventDefault();
+        if (event.repeat || ui.backdrop.classList.contains("open")) return;
+        if (event.code === "Space" && ["idle", "landed"].includes(game.phase)) startCast();
+        else if (event.code === "Space" && game.phase === "charging") cast();
+        else if ((event.key === "e" || event.key === "Enter") && game.phase === "biting") hookFish();
+        keys.add(event.code === "Space" ? " " : event.key.toLowerCase());
+      });
+      window.addEventListener("keyup", (event) => {
+        keys.delete(event.code === "Space" ? " " : event.key.toLowerCase());
+        if (event.code === "Space" && game.phase === "charging") cast();
+      });
+      window.addEventListener("blur", () => keys.clear());
+      window.addEventListener("resize", resize);
+
+      resize();
+      refresh();
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>
