@@ -51,6 +51,7 @@
     .statline strong { color: var(--foam); font-variant-numeric: tabular-nums; }
     .center { text-align: center; }
     .status { min-height: 24px; margin: 0 0 8px; color: #f0fff5; font-size: clamp(13px,1.6vw,17px); font-weight: 850; letter-spacing: -.02em; text-shadow: 0 2px 8px #07343b; }
+    .status.catch-message { font-family: "Times New Roman", Times, serif; font-size: 13px; }
     .substatus { min-height: 17px; margin-bottom: 12px; color: #dbf0e7; font-size: 10px; }
     .buttons { display: flex; justify-content: center; gap: 9px; }
     .btn { min-height: 41px; padding: 0 16px; border: 1px solid #ffffff26; border-radius: 11px; background: #193d41; color: #f4fff8; font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; transition: transform .14s, filter .14s, background .14s; }
@@ -340,8 +341,11 @@
           ui.action.textContent = game.phase === "biting" ? "Set hook!" : game.phase === "hooked" ? "Reel in" : "Set hook";
         }
         if (game.phase === "caught" && game.fish) {
-          ui.status.textContent = `${game.fish.species.name} · ${game.fish.rarity}`;
+          ui.status.textContent = "yay mr.t";
+          ui.status.classList.add("catch-message");
           ui.substatus.textContent = `${game.fish.weight.toFixed(1)} lb catch · worth ${dollars(game.fish.value)} · keep or release`;
+        } else {
+          ui.status.classList.remove("catch-message");
         }
         if (ui.backdrop.classList.contains("open")) renderModal();
       }
